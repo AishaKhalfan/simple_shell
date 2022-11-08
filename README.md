@@ -7,10 +7,10 @@ The shell is a command-line interpreter or shell that provides a command line us
 ## Installation
 You can install the simple shell cloning this repo:
 
-$ git clone https://github.com/AishaKhalfan/simple_shell.git
+- $ git clone https://github.com/AishaKhalfan/simple_shell.git
 Next you can compile the files with this command:
 
-$ gcc -Wall -Werror -Wextra -pedantic *.c -o hsh
+- $ gcc -Wall -Werror -Wextra -pedantic *.c -o hsh
 finally you can run our Shell writing:
 
 
@@ -28,5 +28,5 @@ This project was built and development with:
 - GCC: GNU Compiler version 4.8.4
 
 ## Authors
-Eric Okemwa - Development and documentation
-Aisha Khalifan - Development and documentation
+- Eric Okemwa - Development and documentation
+- Aisha Khalifan - Development and documentation
