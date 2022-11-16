@@ -1,67 +1,89 @@
 #include "shell.h"
 
 /**
- *main- runs a simple shell
- * @ac: unused variable
- * @av: unused variable
- * @env: the environment variable
- *Return: 0 if successful, -1 on failure
+ * sig_handler - checks if Ctrl C is pressed
+ * @sig_num: int
  */
-int main(int ac, char **av, char **env)
+void sig_handler(int sig_num)
 {
-	char **argv = NULL, *line = NULL;
-	pid_t child;
-	ssize_t characters = 0;
-	size_t size = 0;           /*variables*/
-	size_t i;
-	int status = 1, extstat = 0;
-	(void)ac;
-	(void)av;
-
-	signal(SIGINT, sighelp);
-
-	for (i = 1; characters != -1; i++)
+	if (sig_num == SIGINT)
 	{
-		size = 0;
-		characters = -1;
-		prompt(1);
-		characters = getline(&line, &size, stdin);
-		fflush(stdin);         /*get commands in line*/
-		if (characters == -1)
+		_puts("\n#cisfun$ ");
+	}
+}
+
+/**
+ * _EOF - handles the End of File
+ * @len: return value of getline function
+ * @buff: buffer
+ */
+void _EOF(int len, char *buff)
+{
+	(void)buff;
+	if (len == -1)
+	{
+		if (isatty(STDIN_FILENO))
 		{
-			getline_fail(argv, line);
-			break;
+			_puts("\n");
+			free(buff);
 		}
-		argv = tok(line, "\t\n ");   /*runs tok func on line*/
-		if (argv == NULL)
-		{
-			free(line);
-			line = NULL;
-			continue;
-		}
-		if (builtin(env, argv, line, extstat) == 1) /*builtins*/
-			continue;
-		argv = _path(1, argv, env); /*path check/append*/
-		child = fork();
-		if (child == -1)        /*creates and checks child*/
-		{
-			free_shell(argv, line);
-			return (-1);
-		}
-		if (child == 0)
-		{
-			stat_exec(argv, line, i, env);/*runs command*/
-			_exit(1);
-		}
+		exit(0);
+	}
+}
+/**
+ * _isatty - verif if terminal
+ */
+
+void _isatty(void)
+{
+	if (isatty(STDIN_FILENO))
+		_puts("#cisfun$ ");
+}
+/**
+ * main - Shell
+ * Return: 0 on success
+ */
+
+int main(void)
+{
+	ssize_t len = 0;
+	char *buff = NULL, *value, *pathname, **arv;
+	size_t size = 0;
+	list_path *head = '\0';
+	void (*f)(char **);
+
+	signal(SIGINT, sig_handler);
+	while (len != EOF)
+	{
+		_isatty();
+		len = getline(&buff, &size, stdin);
+		_EOF(len, buff);
+		arv = splitstring(buff, " \n");
+		if (!arv || !arv[0])
+			execute(arv);
 		else
 		{
-			free_shell(argv, line);
-			wait(&status);  /*waits for current process */
-			if (WIFEXITED(status))
-				extstat = WEXITSTATUS(status);
+			value = _getenv("PATH");
+			head = linkpath(value);
+			pathname = _which(arv[0], head);
+			f = checkbuild(arv);
+			if (f)
+			{
+				free(buff);
+				f(arv);
+			}
+			else if (!pathname)
+				execute(arv);
+			else if (pathname)
+			{
+				free(arv[0]);
+				arv[0] = pathname;
+				execute(arv);
+			}
 		}
 	}
-	if (isatty(0))
-		free_shell(argv, line);      /*free all in parent*/
+	free_list(head);
+	freearv(arv);
+	free(buff);
 	return (0);
 }
