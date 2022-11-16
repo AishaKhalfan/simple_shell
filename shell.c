@@ -1,99 +1,67 @@
 #include "shell.h"
-/**
- * sighand - function to handle ctrl+c
- * @signum: signal number
- */
-void sighand(int signum)
-{
-	(void)signum;
-	write(1, "\n$ ", 3);
-}
-/**
- * main - simple shell program
- * Return: 0 always success
- */
-int main(void)
-{
-	/*unsigned int pid, ppid;*/
-	ssize_t read = 0;
-	char *buff = NULL, **arr;
-	size_t size = 0;
-	int result, tok_size = 0, len = 0, line_counter = 0;
-	int ex_flag = 0;
 
-	while (1)
+/**
+ *main- runs a simple shell
+ * @ac: unused variable
+ * @av: unused variable
+ * @env: the environment variable
+ *Return: 0 if successful, -1 on failure
+ */
+int main(int ac, char **av, char **env)
+{
+	char **argv = NULL, *line = NULL;
+	pid_t child;
+	ssize_t characters = 0;
+	size_t size = 0;           /*variables*/
+	size_t i;
+	int status = 1, extstat = 0;
+	(void)ac;
+	(void)av;
+
+	signal(SIGINT, sighelp);
+
+	for (i = 1; characters != -1; i++)
 	{
 		size = 0;
-		buff = NULL;
-
-		if (isatty(0))
-			write(STDIN_FILENO, "$ ", 2);
-		signal(SIGINT, sighand);
-		read = getline(&buff, &size, stdin);
-		line_counter++;
-		if (read == -1)
+		characters = -1;
+		prompt(1);
+		characters = getline(&line, &size, stdin);
+		fflush(stdin);         /*get commands in line*/
+		if (characters == -1)
 		{
-			if (isatty(0))
-				write(STDIN_FILENO, "\n", 1);
-			free(buff);
-			return (0);
+			getline_fail(argv, line);
+			break;
 		}
-		if (read == 0)
+		argv = tok(line, "\t\n ");   /*runs tok func on line*/
+		if (argv == NULL)
 		{
-			if (isatty(0))
-			{
-				write(STDIN_FILENO, "\n", 1);
-				continue;
-			}
-		}
-		if (buff && buff[0] != '\n')
-		{
-			/* count length of buffer input */
-			len = _strlen(buff);
-			if (buff[len - 1] == '\n')
-				buff[len - 1] = '\0';
-
-			/* count number of tokens in buffer */
-			tok_size = toksize(buff);
-			if (tok_size == -1)
-				break;
-			if (tok_size == 0)
-				continue;
-			/* put tokens inside array */
-			arr = tokenize(buff);
-			/* checks if 'env', 'exit', or '.' is entered */
-			result = str_comp(arr, tok_size);
-			if (result == 0)
-			{
-				free(arr);
-				free(buff);
-				exit(ex_flag);
-			}
-			ex_flag = 0;
-			if (result == 2)
-			{
-				free(arr);
-				free(buff);
-				continue;
-			}
-			else if (result == 1)
-			{
-				print_env();
-				free(arr);
-				free(buff);
-				continue;
-			}
-			/* send input to path function to check */
-			/*if it exists, permissions, and if it can execute */
-			ex_flag = path(arr, line_counter);
-		}
-		if (buff && buff[0] == '\n')
-		{
-			free(buff);
+			free(line);
+			line = NULL;
 			continue;
 		}
-		free(buff);
-		free(arr);
+		if (builtin(env, argv, line, extstat) == 1) /*builtins*/
+			continue;
+		argv = _path(1, argv, env); /*path check/append*/
+		child = fork();
+		if (child == -1)        /*creates and checks child*/
+		{
+			free_shell(argv, line);
+			return (-1);
+		}
+		if (child == 0)
+		{
+			stat_exec(argv, line, i, env);/*runs command*/
+			_exit(1);
+		}
+		else
+		{
+			free_shell(argv, line);
+			wait(&status);  /*waits for current process */
+			if (WIFEXITED(status))
+				extstat = WEXITSTATUS(status);
+		}
 	}
+	if (isatty(0))
+		free_shell(argv, line);      /*free all in parent*/
 	return (0);
 }
